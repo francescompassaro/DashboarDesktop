@@ -10,6 +10,7 @@ except ImportError:
 
 DB_NAME = "turni_guardiania.db"
 GIORNI_SETTIMANA = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"]
+PAGA_BASE = 7.50
 
 TURNI_STANDARD = {
     "Mattina": {"start": "06:00", "end": "14:00"},
@@ -96,3 +97,38 @@ def elimina_turno(turno_id):
     cursor.execute("DELETE FROM turni WHERE id = ?", (turno_id,))
     conn.commit()
     conn.close()
+
+
+
+def calcola_compenso_turno(data_str, tipo_turno, ora_in, ora_fi, ore, note=""):
+    """
+    Calcola il compenso economico per un turno applicando le maggiorazioni:
+    - Paga base: 7.50 €/h
+    - Straordinario diurno: +20% (9.00 €/h)
+    - Notturno ordinario (22-06): +30% (9.75 €/h)
+    - Notturno straordinario (22-06): +40% (10.50 €/h)
+    - Festivo / Domenicale: +40% (10.50 €/h)
+    """
+    if ore <= 0:
+        return 0.0
+
+    dt = datetime.strptime(data_str, "%Y-%m-%d")
+    is_domenica_o_festivo = dt.weekday() == 6 or "festivo" in note.lower()
+    is_notturno = (ora_in == "22:00" and ora_fi == "06:00") or "notte" in tipo_turno.lower()
+    is_straordinario = "straordinario" in note.lower() or "straordinario" in tipo_turno.lower()
+
+    # Calcolo della tariffa oraria applicata
+    maggiorazione = 0.0
+
+    if is_domenica_o_festivo:
+        maggiorazione = 0.40  # +40% Domenicale/Festivo
+    elif is_notturno:
+        if is_straordinario:
+            maggiorazione = 0.40  # +40% Notturno Straordinario
+        else:
+            maggiorazione = 0.30  # +30% Notturno Ordinario
+    elif is_straordinario:
+        maggiorazione = 0.20  # +20% Straordinario Diurno
+
+    paga_oraria_effettiva = PAGA_BASE * (1 + maggiorazione)
+    return round(ore * paga_oraria_effettiva, 2)

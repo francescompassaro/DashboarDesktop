@@ -118,16 +118,23 @@ class TurniFrame(ctk.CTkFrame):
         tot_ore = 0.0
         tot_turni = 0
         tot_riposi = 0
+        tot_compenso = 0.0
 
         for r in rows:
             t_id, dt, tipo, o_in, o_fi, ore, note = r
             giorno_sett = db_turni.get_giorno_settimana(dt)
             
+            # Calcolo del compenso per il singolo turno
+            compenso_turno = db_turni.calcola_compenso_turno(dt, tipo, o_in, o_fi, ore, note)
+            
             card = ctk.CTkFrame(self.scrollable_list)
             card.pack(fill="x", padx=5, pady=3)
 
             orario = "RIPOSO" if ore == 0 else f"{o_in}-{o_fi}"
-            txt = f"{giorno_sett} {dt} | {orario} ({ore}h) - {tipo}"
+            txt = f"{giorno_sett} {dt} | {orario} ({ore}h)"
+            if ore > 0:
+                txt += f" - {compenso_turno:.2f} €"
+            txt += f" | {tipo}"
             if note: txt += f" [{note}]"
 
             lbl = ctk.CTkLabel(card, text=txt, anchor="w")
@@ -139,13 +146,13 @@ class TurniFrame(ctk.CTkFrame):
             if ore > 0:
                 tot_ore += ore
                 tot_turni += 1
+                tot_compenso += compenso_turno
             else:
                 tot_riposi += 1
 
+        # Aggiornamento del riepilogo in basso nel pannello sinistro
         self.lbl_stats.configure(
-            text=f"Turni: {tot_turni} | Ore: {tot_ore:.1f}h | Riposi: {tot_riposi}"
+            text=f"Turni: {tot_turni} | Riposi: {tot_riposi}\n"
+                 f"Ore Totali: {tot_ore:.1f} h\n"
+                 f"Stima Compenso: {tot_compenso:.2f} €"
         )
-
-    def elimina(self, turno_id):
-        db_turni.elimina_turno(turno_id)
-        self.aggiorna_lista()
